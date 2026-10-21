@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { AIConfig } from "./config";
+import { AIRefusalError, AITimeoutError, AIUnavailableError } from "./errors";
 
 export interface ChatTurn {
   role: "user" | "assistant";
@@ -11,13 +12,10 @@ export interface GenerateTextOptions {
   messages: ChatTurn[];
   model: string;
   maxTokens: number;
-}
-
-export class AIRefusalError extends Error {
-  constructor(message = "The model declined to answer this request") {
-    super(message);
-    this.name = "AIRefusalError";
-  }
+  /** Per-attempt timeout */
+  timeoutMs: number;
+  /** Anthropic SDK retries (429, 5xx, connection errors). Each retry gets its own timeout */
+  maxRetries?: number;
 }
 
 // Models that accept the server-side refusal fallback (`fallbacks: "default"`)
@@ -37,7 +35,7 @@ function getAnthropicClient(apiKey: string): Anthropic {
 
 async function generateWithAnthropic(
   config: AIConfig,
-  { system, messages, model, maxTokens }: GenerateTextOptions
+  { system, messages, model, maxTokens, timeoutMs, maxRetries = 0 }: GenerateTextOptions
 ): Promise<string> {
   const client = getAnthropicClient(config.anthropicApiKey!);
   const params = {
@@ -48,13 +46,18 @@ async function generateWithAnthropic(
     ...(config.effort && { output_config: { effort: config.effort } }),
   };
 
+  const requestOptions = { timeout: timeoutMs, maxRetries };
+
   const response = FALLBACK_MODELS.has(model)
-    ? await client.beta.messages.create({
-        ...params,
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
-      })
-    : await client.messages.create(params);
+    ? await client.beta.messages.create(
+        {
+          ...params,
+          betas: ["server-side-fallback-2026-07-01"],
+          fallbacks: "default",
+        },
+        requestOptions
+      )
+    : await client.messages.create(params, requestOptions);
 
   if (response.stop_reason === "refusal") {
     throw new AIRefusalError();
@@ -68,24 +71,37 @@ async function generateWithAnthropic(
 
 async function generateWithOllama(
   config: AIConfig,
-  { system, messages, model, maxTokens }: GenerateTextOptions
+  { system, messages, model, maxTokens, timeoutMs }: GenerateTextOptions
 ): Promise<string> {
-  const response = await fetch(`${config.ollamaBaseUrl}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "system", content: system }, ...messages],
-      stream: false,
-      options: {
-        temperature: 0.7,
-        num_predict: maxTokens,
-      },
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${config.ollamaBaseUrl}/api/chat`, {
+      method: "POST",
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "system", content: system }, ...messages],
+        stream: false,
+        options: {
+          temperature: 0.7,
+          num_predict: maxTokens,
+        },
+      }),
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "TimeoutError") {
+      throw new AITimeoutError();
+    }
+    // fetch() rejects with a TypeError when Ollama is not running
+    throw new AIUnavailableError(
+      `Could not reach Ollama at ${config.ollamaBaseUrl}`
+    );
+  }
 
   if (!response.ok) {
-    throw new Error(
+    // 404 usually means the model has not been pulled (`ollama pull <model>`)
+    throw new AIUnavailableError(
       `Ollama responded with ${response.status} ${response.statusText}`
     );
   }
