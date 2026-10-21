@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { getAIConfig } from "@/lib/ai/config";
+import { generateText } from "@/lib/ai/provider";
 
 
 interface CodeSuggestionRequest {
@@ -137,28 +139,18 @@ Instructions:
 Generate suggestion:`;
 }
 
+const COMPLETION_SYSTEM_PROMPT =
+  "You are a code completion engine. Reply only with the code to insert at |CURSOR|, without explanations.";
+
 async function generateSuggestion(prompt: string): Promise<string> {
   try {
-    const response = await fetch("http://localhost:11434/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "codellama:latest",
-        prompt,
-        stream: false,
-        option: {
-          temperature: 0.7,
-          max_tokens: 300,
-        },
-      }),
+    const config = getAIConfig();
+    let suggestion = await generateText(config, {
+      system: COMPLETION_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: prompt }],
+      model: config.completionModel,
+      maxTokens: 4096,
     });
-
-       if (!response.ok) {
-      throw new Error(`AI service error: ${response.statusText}`)
-    }
-
-      const data = await response.json()
-    let suggestion = data.response
 
      // Clean up the suggestion
     if (suggestion.includes("```")) {
