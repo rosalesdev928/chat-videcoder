@@ -2,6 +2,7 @@ import {
   readTemplateStructureFromJson,
   saveTemplateStructureToJson,
 } from "@/modules/playground/lib/path-to-json";
+import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { templatePaths } from "@/lib/template";
 import path from "path";
@@ -29,8 +30,14 @@ if(!id){
       return Response.json({ error: "Missing playground ID" }, { status: 400 });
 }
 
-const playground = await db.playground.findUnique({
-    where:{id}
+const session = await auth();
+if (!session?.user?.id) {
+  return Response.json({ error: "Unauthorized" }, { status: 401 });
+}
+
+// Only the owner can load the playground template
+const playground = await db.playground.findFirst({
+    where:{id, userId: session.user.id}
 })
 
   if (!playground) {

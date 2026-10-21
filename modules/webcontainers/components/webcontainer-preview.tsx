@@ -7,15 +7,13 @@ import { Progress } from "@/components/ui/progress";
 
 import { WebContainer } from "@webcontainer/api";
 import { TemplateFolder } from "@/modules/playground/lib/path-to-json";
-import TerminalComponent from "./terminal";
+import TerminalComponent, { type TerminalRef } from "./terminal";
 
 interface WebContainerPreviewProps {
   templateData: TemplateFolder;
-  serverUrl: string;
   isLoading: boolean;
   error: string | null;
   instance: WebContainer | null;
-  writeFileSync: (path: string, content: string) => Promise<void>;
   forceResetup?: boolean; // Optional prop to force re-setup
 }
 const WebContainerPreview = ({
@@ -23,12 +21,10 @@ const WebContainerPreview = ({
   error,
   instance,
   isLoading,
-  serverUrl,
-  writeFileSync,
   forceResetup = false,
 }: WebContainerPreviewProps) => {
   const [previewUrl, setPreviewUrl] = useState<string>("");
-  const [loadingState, setLoadingState] = useState({
+  const [, setLoadingState] = useState({
     transforming: false,
     mounting: false,
     installing: false,
@@ -41,7 +37,7 @@ const WebContainerPreview = ({
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [isSetupInProgress, setIsSetupInProgress] = useState(false);
 
-  const terminalRef = useRef<any>(null);
+  const terminalRef = useRef<TerminalRef>(null);
 
   // Reset setup state when forceResetup changes
   useEffect(() => {
@@ -101,7 +97,9 @@ const WebContainerPreview = ({
             setLoadingState((prev) => ({ ...prev, starting: true }));
             return;
           }
-        } catch (error) {}
+        } catch {
+          // package.json is not mounted yet: continue with a fresh setup
+        }
 
         // Step-1 transform data
         setLoadingState((prev) => ({ ...prev, transforming: true }));
@@ -113,7 +111,6 @@ const WebContainerPreview = ({
           );
         }
 
-        // @ts-ignore
         const files = transformToWebContainerFormat(templateData);
         setLoadingState((prev) => ({
           ...prev,

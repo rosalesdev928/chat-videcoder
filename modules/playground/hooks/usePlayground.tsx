@@ -4,11 +4,7 @@ import { toast } from "sonner";
 import type { TemplateFolder } from "../lib/path-to-json";
 import { getPlaygroundById, SaveUpdatedCode } from "../actions";
 
-interface PlaygroundData {
-  id: string;
-  title?: string;
-  [key: string]: any;
-}
+type PlaygroundData = NonNullable<Awaited<ReturnType<typeof getPlaygroundById>>>;
 
 interface UsePlaygroundReturn {
   playgroundData: PlaygroundData | null;
@@ -36,7 +32,6 @@ export const usePlayground = (id: string): UsePlaygroundReturn => {
 
       const data = await getPlaygroundById(id);
 
-      //   @ts-ignore
       setPlaygroundData(data);
       const rawContent = data?.templateFiles?.[0]?.content;
 
@@ -82,7 +77,8 @@ export const usePlayground = (id: string): UsePlaygroundReturn => {
 
   const saveTemplateData = useCallback(async(data:TemplateFolder)=>{
     try {
-          await SaveUpdatedCode(id, data);
+      const saved = await SaveUpdatedCode(id, data);
+      if (!saved) throw new Error("The playground could not be saved");
       setTemplateData(data);
       toast.success("Changes saved successfully");
     } catch (error) {

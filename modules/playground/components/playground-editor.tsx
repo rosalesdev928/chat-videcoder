@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useCallback } from "react"
 import Editor, { type Monaco } from "@monaco-editor/react"
+import type { editor as MonacoEditor, IDisposable, Position } from "monaco-editor"
 import { TemplateFile } from "../lib/path-to-json"
 import { configureMonaco, defaultEditorOptions, getEditorLanguage } from "../lib/editor-config"
 
@@ -13,9 +14,9 @@ interface PlaygroundEditorProps {
   suggestion: string | null
   suggestionLoading: boolean
   suggestionPosition: { line: number; column: number } | null
-  onAcceptSuggestion: (editor: any, monaco: any) => void
-  onRejectSuggestion: (editor: any) => void
-  onTriggerSuggestion: (type: string, editor: any) => void
+  onAcceptSuggestion: (editor: MonacoEditor.IStandaloneCodeEditor, monaco: Monaco) => void
+  onRejectSuggestion: (editor: MonacoEditor.IStandaloneCodeEditor) => void
+  onTriggerSuggestion: (type: string, editor: MonacoEditor.IStandaloneCodeEditor) => void
 }
 
 export const PlaygroundEditor = ({
@@ -29,9 +30,9 @@ export const PlaygroundEditor = ({
   onRejectSuggestion,
   onTriggerSuggestion,
 }: PlaygroundEditorProps) => {
-  const editorRef = useRef<any>(null)
+  const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
-  const inlineCompletionProviderRef = useRef<any>(null)
+  const inlineCompletionProviderRef = useRef<IDisposable | null>(null)
   const currentSuggestionRef = useRef<{
     text: string
     position: { line: number; column: number }
@@ -40,7 +41,6 @@ export const PlaygroundEditor = ({
   const isAcceptingSuggestionRef = useRef(false)
   const suggestionAcceptedRef = useRef(false)
   const suggestionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const tabCommandRef = useRef<any>(null)
 
   // Generate unique ID for each suggestion
   const generateSuggestionId = () => `suggestion-${Date.now()}-${Math.random()}`
@@ -49,7 +49,7 @@ export const PlaygroundEditor = ({
   const createInlineCompletionProvider = useCallback(
     (monaco: Monaco) => {
       return {
-        provideInlineCompletions: async (model: any, position: any, context: any, token: any) => {
+        provideInlineCompletions: async (_model: MonacoEditor.ITextModel, position: Position) => {
           console.log("provideInlineCompletions called", {
             hasSuggestion: !!suggestion,
             hasPosition: !!suggestionPosition,
@@ -121,7 +121,7 @@ export const PlaygroundEditor = ({
             ],
           }
         },
-        freeInlineCompletions: (completions: any) => {
+        freeInlineCompletions: () => {
           console.log("freeInlineCompletions called")
         },
       }
@@ -180,6 +180,7 @@ export const PlaygroundEditor = ({
 
       // Verify we're still at the suggestion position
       if (
+        !currentPosition ||
         currentPosition.lineNumber !== suggestionPos.line ||
         currentPosition.column < suggestionPos.column ||
         currentPosition.column > suggestionPos.column + 5
@@ -246,6 +247,7 @@ export const PlaygroundEditor = ({
     const suggestion = currentSuggestionRef.current
 
     return (
+      !!position &&
       position.lineNumber === suggestion.position.line &&
       position.column >= suggestion.position.column &&
       position.column <= suggestion.position.column + 2
@@ -307,7 +309,20 @@ export const PlaygroundEditor = ({
     }
   }, [suggestion, suggestionPosition, activeFile, createInlineCompletionProvider])
 
-  const handleEditorDidMount = (editor: any, monaco: Monaco) => {
+  const updateEditorLanguage = useCallback(() => {
+    if (!activeFile || !monacoRef.current || !editorRef.current) return
+    const model = editorRef.current.getModel()
+    if (!model) return
+
+    const language = getEditorLanguage(activeFile.fileExtension || "")
+    try {
+      monacoRef.current.editor.setModelLanguage(model, language)
+    } catch (error) {
+      console.warn("Failed to set editor language:", error)
+    }
+  }, [activeFile])
+
+  const handleEditorDidMount = (editor: MonacoEditor.IStandaloneCodeEditor, monaco: Monaco) => {
     editorRef.current = editor
     monacoRef.current = monaco
     console.log("Editor instance mounted:", !!editorRef.current)
@@ -344,12 +359,9 @@ export const PlaygroundEditor = ({
       onTriggerSuggestion("completion", editor)
     })
 
-    // CRITICAL: Override Tab key with high priority and prevent default Monaco behavior
-    if (tabCommandRef.current) {
-      tabCommandRef.current.dispose()
-    }
-
-    tabCommandRef.current = editor.addCommand(
+    // CRITICAL: Override Tab key with high priority and prevent default Monaco behavior.
+    // addCommand returns a command id (not a disposable); it is removed with the editor.
+    editor.addCommand(
       monaco.KeyCode.Tab,
       () => {
         console.log("TAB PRESSED", {
@@ -401,7 +413,7 @@ export const PlaygroundEditor = ({
     })
 
     // Listen for cursor position changes to hide suggestions when moving away
-    editor.onDidChangeCursorPosition((e: any) => {
+    editor.onDidChangeCursorPosition((e) => {
       if (isAcceptingSuggestionRef.current) return
 
       const newPosition = e.position
@@ -437,7 +449,7 @@ export const PlaygroundEditor = ({
     })
 
     // Listen for content changes to detect manual typing over suggestions
-    editor.onDidChangeModelContent((e: any) => {
+    editor.onDidChangeModelContent((e) => {
       if (isAcceptingSuggestionRef.current) return
 
       // If user types while there's a suggestion, clear it (unless it's our insertion)
@@ -485,22 +497,9 @@ export const PlaygroundEditor = ({
     updateEditorLanguage()
   }
 
-  const updateEditorLanguage = () => {
-    if (!activeFile || !monacoRef.current || !editorRef.current) return
-    const model = editorRef.current.getModel()
-    if (!model) return
-
-    const language = getEditorLanguage(activeFile.fileExtension || "")
-    try {
-      monacoRef.current.editor.setModelLanguage(model, language)
-    } catch (error) {
-      console.warn("Failed to set editor language:", error)
-    }
-  }
-
   useEffect(() => {
     updateEditorLanguage()
-  }, [activeFile])
+  }, [updateEditorLanguage])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -511,10 +510,6 @@ export const PlaygroundEditor = ({
       if (inlineCompletionProviderRef.current) {
         inlineCompletionProviderRef.current.dispose()
         inlineCompletionProviderRef.current = null
-      }
-      if (tabCommandRef.current) {
-        tabCommandRef.current.dispose()
-        tabCommandRef.current = null
       }
     }
   }, [])
@@ -543,7 +538,6 @@ export const PlaygroundEditor = ({
         onChange={(value) => onContentChange(value || "")}
         onMount={handleEditorDidMount}
         language={activeFile ? getEditorLanguage(activeFile.fileExtension || "") : "plaintext"}
-        // @ts-ignore
         options={defaultEditorOptions}
       />
     </div>

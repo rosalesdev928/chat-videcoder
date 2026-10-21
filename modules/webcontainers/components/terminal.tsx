@@ -10,13 +10,62 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Copy, Trash2, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { WebContainer, WebContainerProcess } from "@webcontainer/api";
 
 interface TerminalProps {
-  webcontainerUrl?: string;
   className?: string;
   theme?: "dark" | "light";
-  webContainerInstance?: any;
+  webContainerInstance?: WebContainer | null;
 }
+
+const terminalThemes = {
+  dark: {
+    background: "#09090B",
+    foreground: "#FAFAFA",
+    cursor: "#FAFAFA",
+    cursorAccent: "#09090B",
+    selection: "#27272A",
+    black: "#18181B",
+    red: "#EF4444",
+    green: "#22C55E",
+    yellow: "#EAB308",
+    blue: "#3B82F6",
+    magenta: "#A855F7",
+    cyan: "#06B6D4",
+    white: "#F4F4F5",
+    brightBlack: "#3F3F46",
+    brightRed: "#F87171",
+    brightGreen: "#4ADE80",
+    brightYellow: "#FDE047",
+    brightBlue: "#60A5FA",
+    brightMagenta: "#C084FC",
+    brightCyan: "#22D3EE",
+    brightWhite: "#FFFFFF",
+  },
+  light: {
+    background: "#FFFFFF",
+    foreground: "#18181B",
+    cursor: "#18181B",
+    cursorAccent: "#FFFFFF",
+    selection: "#E4E4E7",
+    black: "#18181B",
+    red: "#DC2626",
+    green: "#16A34A",
+    yellow: "#CA8A04",
+    blue: "#2563EB",
+    magenta: "#9333EA",
+    cyan: "#0891B2",
+    white: "#F4F4F5",
+    brightBlack: "#71717A",
+    brightRed: "#EF4444",
+    brightGreen: "#22C55E",
+    brightYellow: "#EAB308",
+    brightBlue: "#3B82F6",
+    brightMagenta: "#A855F7",
+    brightCyan: "#06B6D4",
+    brightWhite: "#FAFAFA",
+  },
+};
 
 // Define the methods that will be exposed through the ref
 export interface TerminalRef {
@@ -27,7 +76,6 @@ export interface TerminalRef {
 
 const 
 TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({ 
-  webcontainerUrl, 
   className,
   theme = "dark",
   webContainerInstance
@@ -45,57 +93,8 @@ TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
   const cursorPosition = useRef<number>(0);
   const commandHistory = useRef<string[]>([]);
   const historyIndex = useRef<number>(-1);
-  const currentProcess = useRef<any>(null);
-  const shellProcess = useRef<any>(null);
+  const currentProcess = useRef<WebContainerProcess | null>(null);
 
-  const terminalThemes = {
-    dark: {
-      background: "#09090B",
-      foreground: "#FAFAFA",
-      cursor: "#FAFAFA",
-      cursorAccent: "#09090B",
-      selection: "#27272A",
-      black: "#18181B",
-      red: "#EF4444",
-      green: "#22C55E",
-      yellow: "#EAB308",
-      blue: "#3B82F6",
-      magenta: "#A855F7",
-      cyan: "#06B6D4",
-      white: "#F4F4F5",
-      brightBlack: "#3F3F46",
-      brightRed: "#F87171",
-      brightGreen: "#4ADE80",
-      brightYellow: "#FDE047",
-      brightBlue: "#60A5FA",
-      brightMagenta: "#C084FC",
-      brightCyan: "#22D3EE",
-      brightWhite: "#FFFFFF",
-    },
-    light: {
-      background: "#FFFFFF",
-      foreground: "#18181B",
-      cursor: "#18181B",
-      cursorAccent: "#FFFFFF",
-      selection: "#E4E4E7",
-      black: "#18181B",
-      red: "#DC2626",
-      green: "#16A34A",
-      yellow: "#CA8A04",
-      blue: "#2563EB",
-      magenta: "#9333EA",
-      cyan: "#0891B2",
-      white: "#F4F4F5",
-      brightBlack: "#71717A",
-      brightRed: "#EF4444",
-      brightGreen: "#22C55E",
-      brightYellow: "#EAB308",
-      brightBlue: "#3B82F6",
-      brightMagenta: "#A855F7",
-      brightCyan: "#06B6D4",
-      brightWhite: "#FAFAFA",
-    },
-  };
 
   const writePrompt = useCallback(() => {
     if (term.current) {
@@ -178,13 +177,13 @@ TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
       }));
 
       // Wait for process to complete
-      const exitCode = await process.exit;
+      await process.exit;
       currentProcess.current = null;
 
       // Show new prompt
       writePrompt();
 
-    } catch (error) {
+    } catch {
       if (term.current) {
         term.current.writeln(`\r\nCommand not found: ${command}`);
         writePrompt();
@@ -403,9 +402,6 @@ TerminalComponent = forwardRef<TerminalRef, TerminalProps>(({
       resizeObserver.disconnect();
       if (currentProcess.current) {
         currentProcess.current.kill();
-      }
-      if (shellProcess.current) {
-        shellProcess.current.kill();
       }
       if (term.current) {
         term.current.dispose();

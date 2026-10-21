@@ -10,8 +10,6 @@ export default async function DashboardLayout({
 
     const playgroundData = await getAllPlaygroundForUser();
 
-    console.log("playgroundData", playgroundData);
-
   const technologyIconMap: Record<string, string> = {
     REACT: "Zap",
     NEXTJS: "Lightbulb",
@@ -21,7 +19,7 @@ export default async function DashboardLayout({
     ANGULAR: "Terminal",
   }
 
-  const formattedPlaygroundData = playgroundData?.map((item)=>({
+  const formattedPlaygroundData = playgroundData.map((item)=>({
     id:item.id,
     name:item.title,
     starred:item.Starmark?.[0]?.isMarked || false,
@@ -35,7 +33,6 @@ export default async function DashboardLayout({
     
     <div className="flex min-h-screen w-full overflow-x-hidden">
       {/* Dashboard Sidebar */}
-      {/* @ts-ignore */}
       <DashboardSidebar initialPlaygroundData={formattedPlaygroundData}/>
       <main className="flex-1">{children}</main>
     </div>

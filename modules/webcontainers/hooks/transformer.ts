@@ -1,59 +1,38 @@
-interface TemplateItem {
-  filename: string;
-  fileExtension: string;
-  content: string;
-  folderName?: string;
-  items?: TemplateItem[];
+import type { FileSystemTree } from "@webcontainer/api";
+import type {
+  TemplateFile,
+  TemplateFolder,
+  TemplateItem,
+} from "@/modules/playground/lib/path-to-json";
+
+function isFolder(item: TemplateItem): item is TemplateFolder {
+  return "folderName" in item;
 }
 
-interface WebContainerFile {
-  file: {
-    contents: string;
-  };
+/** File name as it appears on disk. Dotfiles like `.gitignore` have no extension. */
+export function getFileName(file: TemplateFile): string {
+  return file.fileExtension
+    ? `${file.filename}.${file.fileExtension}`
+    : file.filename;
 }
 
-interface WebContainerDirectory {
-  directory: {
-    [key: string]: WebContainerFile | WebContainerDirectory;
-  };
-}
+function toTree(items: TemplateItem[]): FileSystemTree {
+  const tree: FileSystemTree = {};
 
-type WebContainerFileSystem = Record<string, WebContainerFile | WebContainerDirectory>;
-
-export function transformToWebContainerFormat(template: { folderName: string; items: TemplateItem[] }): WebContainerFileSystem {
-  function processItem(item: TemplateItem): WebContainerFile | WebContainerDirectory {
-    if (item.folderName && item.items) {
-      // This is a directory
-      const directoryContents: WebContainerFileSystem = {};
-      
-      item.items.forEach(subItem => {
-        const key = subItem.fileExtension 
-          ? `${subItem.filename}.${subItem.fileExtension}`
-          : subItem.folderName!;
-        directoryContents[key] = processItem(subItem);
-      });
-
-      return {
-        directory: directoryContents
-      };
+  for (const item of items) {
+    if (isFolder(item)) {
+      tree[item.folderName] = { directory: toTree(item.items) };
     } else {
-      // This is a file
-      return {
-        file: {
-          contents: item.content
-        }
-      };
+      tree[getFileName(item)] = { file: { contents: item.content } };
     }
   }
 
-  const result: WebContainerFileSystem = {};
-  
-  template.items.forEach(item => {
-    const key = item.fileExtension 
-      ? `${item.filename}.${item.fileExtension}`
-      : item.folderName!;
-    result[key] = processItem(item);
-  });
+  return tree;
+}
 
-  return result;
-}1
+/** Converts the template JSON into the tree that `WebContainer.mount()` expects */
+export function transformToWebContainerFormat(
+  template: TemplateFolder
+): FileSystemTree {
+  return toTree(template.items);
+}

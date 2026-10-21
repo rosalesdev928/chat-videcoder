@@ -1,5 +1,7 @@
-import { isLastDayOfMonth } from "date-fns";
 import { useState, useCallback } from "react";
+import type { editor } from "monaco-editor";
+
+type CodeEditor = editor.IStandaloneCodeEditor;
 
 
 interface AISuggestionsState {
@@ -12,10 +14,11 @@ interface AISuggestionsState {
 
 interface UseAISuggestionsReturn extends AISuggestionsState {
     toggleEnabled: () => void;
-    fetchSuggestion: (type: string, editor: any) => Promise<void>;
-    acceptSuggestion: (editor: any, monaco: any) => void;
-    rejectSuggestion: (editor: any) => void;
-    clearSuggestion: (editor: any) => void;
+    fetchSuggestion: (type: string, editor: CodeEditor) => Promise<void>;
+    /** The editor inserts the text itself; this only clears the hook state */
+    acceptSuggestion: (editor: CodeEditor) => void;
+    rejectSuggestion: (editor: CodeEditor) => void;
+    clearSuggestion: (editor: CodeEditor) => void;
 }
 
 export const useAISuggestions = (): UseAISuggestionsReturn => {
@@ -31,7 +34,7 @@ export const useAISuggestions = (): UseAISuggestionsReturn => {
         setState((prev) => ({ ...prev, isEnabled: !prev.isEnabled }))
     }, [])
 
-    const fetchSuggestion = useCallback(async (type: string, editor: any) => {
+    const fetchSuggestion = useCallback(async (type: string, editor: CodeEditor) => {
         setState((currentState) => {
 
             if (!currentState.isEnabled) {
@@ -98,39 +101,24 @@ export const useAISuggestions = (): UseAISuggestionsReturn => {
     }, [])
 
 
-    const acceptSuggestion = useCallback(() => {
-        (editor: any, monaco: any) => {
-            setState((currentState) => {
-                if (!currentState.suggestion || !currentState.position || !editor || !monaco) {
-                    return currentState;
-                }
+    // PlaygroundEditor already inserted the text with executeEdits, so here we
+    // only clear the suggestion (inserting again would duplicate the code)
+    const acceptSuggestion = useCallback((editor: CodeEditor) => {
+        setState((currentState) => {
+            if (currentState.decoration.length > 0) {
+                editor.deltaDecorations(currentState.decoration, [])
+            }
 
-                const { line, column } = currentState.position;
-                const sanitizedSuggestion = currentState.suggestion.replace(/^\d+:\s*/gm, "");
-
-                editor.executeEdits("", [
-                    {
-                        range: new monaco.Range(line, column, line, column),
-                        text: sanitizedSuggestion,
-                        forceMoveMarkers: true,
-                    }
-                ]);
-
-                if(editor && currentState.decoration.length > 0){
-                    editor.deltaDecorations(currentState.decoration , [])
-                }
-
-                return {
-                    ...currentState,
-                    suggestion:null,
-                    position:null,
-                    decoration:[]
-                }
-            })
-        }
+            return {
+                ...currentState,
+                suggestion: null,
+                position: null,
+                decoration: []
+            }
+        })
     }, [])
 
-    const rejectSuggestion = useCallback((editor:any)=>{
+    const rejectSuggestion = useCallback((editor: CodeEditor)=>{
             setState((currentState)=>{
                  if(editor && currentState.decoration.length > 0){
                     editor.deltaDecorations(currentState.decoration , [])
@@ -145,7 +133,7 @@ export const useAISuggestions = (): UseAISuggestionsReturn => {
             })
     },[]);
  
-    const clearSuggestion = useCallback((editor: any) => {
+    const clearSuggestion = useCallback((editor: CodeEditor) => {
     setState((currentState) => {
       if (editor && currentState.decoration.length > 0) {
         editor.deltaDecorations(currentState.decoration, []);

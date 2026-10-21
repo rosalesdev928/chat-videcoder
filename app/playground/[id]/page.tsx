@@ -32,12 +32,12 @@ import { findFilePath } from "@/modules/playground/lib";
 import {
   TemplateFile,
   TemplateFolder,
+  TemplateItem,
 } from "@/modules/playground/lib/path-to-json";
 import WebContainerPreview from "@/modules/webcontainers/components/webcontainer-preview";
 import { useWebContainer } from "@/modules/webcontainers/hooks/useWebContainer";
 import {
   AlertCircle,
-  Bot,
   FileText,
   FolderOpen,
   Save,
@@ -48,7 +48,6 @@ import { useParams } from "next/navigation";
 import React, {
   useCallback,
   useEffect,
-  useReducer,
   useRef,
   useState,
 } from "react";
@@ -84,13 +83,11 @@ const MainPlaygroundPage = () => {
   } = useFileExplorer();
 
   const {
-    serverUrl,
     isLoading: containerLoading,
     error: containerError,
     instance,
     writeFileSync,
-    // @ts-ignore
-  } = useWebContainer({ templateData });
+  } = useWebContainer();
 
   const lastSyncedContent = useRef<Map<string, string>>(new Map());
 
@@ -110,7 +107,7 @@ const MainPlaygroundPage = () => {
       return handleAddFile(
         newFile,
         parentPath,
-        writeFileSync!,
+        writeFileSync,
         instance,
         saveTemplateData
       );
@@ -201,9 +198,7 @@ const MainPlaygroundPage = () => {
           JSON.stringify(latestTemplateData)
         );
 
-        // @ts-ignore
-          const updateFileContent = (items: any[]) =>
-            // @ts-ignore
+        const updateFileContent = (items: TemplateItem[]): TemplateItem[] =>
           items.map((item) => {
             if ("folderName" in item) {
               return { ...item, items: updateFileContent(item.items) };
@@ -228,8 +223,8 @@ const MainPlaygroundPage = () => {
           }
         }
 
-           const newTemplateData = await saveTemplateData(updatedTemplateData);
-        setTemplateData(newTemplateData || updatedTemplateData);
+        await saveTemplateData(updatedTemplateData);
+        setTemplateData(updatedTemplateData);
 // Update open files
         const updatedOpenFiles = openFiles.map((f) =>
           f.id === targetFileId
@@ -276,7 +271,7 @@ const MainPlaygroundPage = () => {
     try {
       await Promise.all(unsavedFiles.map((f) => handleSave(f.id)));
       toast.success(`Saved ${unsavedFiles.length} file(s)`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to save some files");
     }
   };
@@ -286,7 +281,8 @@ const MainPlaygroundPage = () => {
     const handleKeyDown = (e:KeyboardEvent)=>{
       if(e.ctrlKey && e.key === "s"){
         e.preventDefault()
-        handleSave()
+        // handleSave already shows an error toast; avoid an unhandled rejection
+        handleSave().catch(() => {})
       }
     }
      window.addEventListener("keydown", handleKeyDown);
@@ -503,7 +499,7 @@ const MainPlaygroundPage = () => {
                         suggestion={aiSuggestions.suggestion}
                         suggestionLoading={aiSuggestions.isLoading}
                         suggestionPosition={aiSuggestions.position}
-                        onAcceptSuggestion={(editor , monaco)=>aiSuggestions.acceptSuggestion(editor , monaco)}
+                        onAcceptSuggestion={(editor) => aiSuggestions.acceptSuggestion(editor)}
 
                           onRejectSuggestion={(editor) =>
                           aiSuggestions.rejectSuggestion(editor)
@@ -521,10 +517,8 @@ const MainPlaygroundPage = () => {
                           <WebContainerPreview
                             templateData={templateData}
                             instance={instance}
-                            writeFileSync={writeFileSync}
                             isLoading={containerLoading}
                             error={containerError}
-                            serverUrl={serverUrl!}
                             forceResetup={false}
                           />
                         </ResizablePanel>

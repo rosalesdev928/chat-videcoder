@@ -47,7 +47,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import "katex/dist/katex.min.css";
 import Image from "next/image";
-import Stream from "stream";
 
 interface ChatMessage {
     role: "user" | "assistant";
@@ -356,7 +355,7 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
                         {/* Enhanced Controls */}
                         <Tabs
                             value={chatMode}
-                            onValueChange={(value) => setChatMode(value as any)}
+                            onValueChange={(value) => setChatMode(value as typeof chatMode)}
                             className="px-6"
                         >
                             <div className="flex items-center justify-between mb-4">
@@ -514,22 +513,23 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
                                                     remarkPlugins={[remarkGfm, remarkMath]}
                                                     rehypePlugins={[rehypeKatex]}
                                                     components={{
-                                                        code: ({ children, className, inline }) => {
-                                                            if (inline) {
-                                                                return (
-                                                                    <code className="bg-zinc-800 px-1 py-0.5 rounded text-sm">
-                                                                        {children}
-                                                                    </code>
-                                                                );
-                                                            }
-                                                            return (
-                                                                <div className="bg-zinc-800 rounded-lg p-4 my-4">
-                                                                    <pre className="text-sm text-zinc-100 overflow-x-auto">
-                                                                        <code className={className}>{children}</code>
-                                                                    </pre>
-                                                                </div>
-                                                            );
-                                                        },
+                                                        // react-markdown v10 no longer passes `inline`: code blocks
+                                                        // are wrapped in <pre>, so style the block there
+                                                        pre: ({ children }) => (
+                                                            <div className="bg-zinc-800 rounded-lg p-4 my-4">
+                                                                <pre className="text-sm text-zinc-100 overflow-x-auto">
+                                                                    {children}
+                                                                </pre>
+                                                            </div>
+                                                        ),
+                                                        code: ({ children, className }) =>
+                                                            className ? (
+                                                                <code className={className}>{children}</code>
+                                                            ) : (
+                                                                <code className="bg-zinc-800 px-1 py-0.5 rounded text-sm">
+                                                                    {children}
+                                                                </code>
+                                                            ),
                                                     }}
                                                 >
                                                     {msg.content}
@@ -620,7 +620,7 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyDown={(e) => {
                                         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                                            handleSendMessage(e as any);
+                                            handleSendMessage(e);
                                         }
                                     }}
                                     disabled={isLoading}
