@@ -187,6 +187,27 @@ prisma/schema.prisma  Data model (users, accounts, playgrounds, files, stars)
 vibecode-starters/    Starter templates (StackBlitz starters, MIT)
 ```
 
+## Deploying to Vercel
+
+The project is ready for Vercel with no `vercel.json`:
+
+- `postinstall` runs `prisma generate`, so the Prisma client is always rebuilt (Vercel caches `node_modules`).
+- `next.config.ts` bundles the six starter folders with `/api/template/[id]` (`outputFileTracingIncludes`), and that route scans them in memory (the serverless file system is read-only).
+- The AI routes declare `maxDuration` (120 s chat, 30 s completion) and their own timeouts.
+- `engines.node` selects Node.js 22.
+
+Steps:
+
+1. **Database**: in MongoDB Atlas, create a database user and allow connections from Vercel (Network Access → `0.0.0.0/0`, or use the Vercel ↔ Atlas integration). Create the collections once from your machine: `DATABASE_URL="<production url>" npx prisma db push`.
+2. **Import** the GitHub repository in Vercel (framework preset: Next.js, default build command).
+3. **Environment variables** (Production): `DATABASE_URL`, a new `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY` and, optionally, `AI_MODEL`, `AI_COMPLETION_MODEL` and `AI_EFFORT`. Ollama cannot run on Vercel.
+4. **OAuth callbacks** for your production domain:
+   - GitHub (an OAuth App accepts a single callback URL, so create a separate app for production): `https://<your-domain>/api/auth/callback/github`
+   - Google (add it to the same client): `https://<your-domain>/api/auth/callback/google`, plus `https://<your-domain>` as an authorized JavaScript origin. Publish the OAuth consent screen, or only test users will be able to sign in.
+5. **Redeploy** after adding the variables.
+
+On Vercel, Auth.js detects the host automatically (`AUTH_URL` is not needed). On other hosts, set `AUTH_TRUST_HOST=true` or `AUTH_URL`. Preview deployments have different URLs, so OAuth sign-in only works on the domains registered in GitHub and Google.
+
 ## Credits and what I added
 
 This project started from the **VibeCode Editor** course project by **[COURSE AUTHOR — fill in]** ([course link — fill in]). The base application (UI, authentication, dashboard, Monaco editor, WebContainers, terminal and the Ollama-based AI chat and completion) comes from that course.
@@ -201,6 +222,7 @@ The starter templates in `vibecode-starters/` come from [StackBlitz Starters](ht
 - **Bug fixes**: accepting AI suggestions did nothing, the Vue/Hono/Next.js previews ran the wrong npm script, the WebContainer was never torn down, a `TypeError` on editor unmount, Markdown inline code caused invalid HTML (hydration error), success toasts shown on failed saves, invalid Monaco options, and more.
 - **Code quality**: from 4 TypeScript errors and 96 ESLint problems to zero; ESLint now covers the whole project.
 - **Tests and CI**: 79 unit tests with Vitest for `lib/` and `modules/playground/lib`, and a GitHub Actions pipeline (lint, typecheck, test, build).
+- **Vercel deployment**: template files bundled with the serverless function, no writes to the file system, `prisma generate` on install, and image optimization restricted to OAuth avatar hosts (it allowed any host).
 - Bilingual documentation (English / Spanish).
 
 ## Known limitations

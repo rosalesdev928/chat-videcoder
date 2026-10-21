@@ -187,6 +187,27 @@ prisma/schema.prisma  Modelo de datos (usuarios, cuentas, playgrounds, archivos,
 vibecode-starters/    Plantillas (StackBlitz Starters, MIT)
 ```
 
+## Despliegue en Vercel
+
+El proyecto está listo para Vercel sin `vercel.json`:
+
+- `postinstall` ejecuta `prisma generate`, así que el cliente de Prisma siempre se regenera (Vercel cachea `node_modules`).
+- `next.config.ts` incluye las seis carpetas de plantillas en la función de `/api/template/[id]` (`outputFileTracingIncludes`), y esa ruta las lee en memoria (el sistema de archivos serverless es de solo lectura).
+- Las rutas de IA declaran `maxDuration` (120 s el chat, 30 s el autocompletado) y sus propios timeouts.
+- `engines.node` selecciona Node.js 22.
+
+Pasos:
+
+1. **Base de datos**: en MongoDB Atlas, crea un usuario de base de datos y permite conexiones desde Vercel (Network Access → `0.0.0.0/0`, o usa la integración Vercel ↔ Atlas). Crea las colecciones una vez desde tu máquina: `DATABASE_URL="<url de producción>" npx prisma db push`.
+2. **Importa** el repositorio de GitHub en Vercel (preset de framework: Next.js, comando de build por defecto).
+3. **Variables de entorno** (Production): `DATABASE_URL`, un `AUTH_SECRET` nuevo, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY` y, opcionalmente, `AI_MODEL`, `AI_COMPLETION_MODEL` y `AI_EFFORT`. Ollama no puede ejecutarse en Vercel.
+4. **Callbacks de OAuth** para tu dominio de producción:
+   - GitHub (una OAuth App acepta una sola URL de callback, así que crea otra app para producción): `https://<tu-dominio>/api/auth/callback/github`
+   - Google (añádela al mismo cliente): `https://<tu-dominio>/api/auth/callback/google`, y `https://<tu-dominio>` como origen de JavaScript autorizado. Publica la pantalla de consentimiento de OAuth; si no, solo podrán entrar los usuarios de prueba.
+5. **Vuelve a desplegar** después de añadir las variables.
+
+En Vercel, Auth.js detecta el host automáticamente (no hace falta `AUTH_URL`). En otros hosts, define `AUTH_TRUST_HOST=true` o `AUTH_URL`. Los despliegues de preview tienen otras URLs, así que el login con OAuth solo funciona en los dominios registrados en GitHub y Google.
+
 ## Créditos y qué agregué yo
 
 Este proyecto parte del proyecto **VibeCode Editor** del curso de **[AUTOR DEL CURSO — completar]** ([enlace al curso — completar]). La aplicación base (interfaz, autenticación, dashboard, editor Monaco, WebContainers, terminal y el chat y autocompletado con Ollama) viene de ese curso.
@@ -201,6 +222,7 @@ Las plantillas de `vibecode-starters/` vienen de [StackBlitz Starters](https://g
 - **Bugs corregidos**: aceptar sugerencias de IA no hacía nada, las vistas previas de Vue/Hono/Next.js ejecutaban el script de npm equivocado, el WebContainer nunca se cerraba, un `TypeError` al desmontar el editor, el código inline del Markdown generaba HTML inválido (error de hidratación), avisos de "guardado" aunque fallara, opciones inválidas de Monaco, entre otros.
 - **Calidad de código**: de 4 errores de TypeScript y 96 problemas de ESLint a cero; ESLint ahora revisa todo el proyecto.
 - **Pruebas y CI**: 79 pruebas unitarias con Vitest para `lib/` y `modules/playground/lib`, y un pipeline de GitHub Actions (lint, typecheck, test, build).
+- **Despliegue en Vercel**: plantillas incluidas en la función serverless, sin escrituras en el sistema de archivos, `prisma generate` al instalar y optimización de imágenes limitada a los hosts de avatares de OAuth (antes permitía cualquier host).
 - Documentación bilingüe (inglés / español).
 
 ## Limitaciones conocidas

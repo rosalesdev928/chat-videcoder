@@ -1,20 +1,33 @@
 import type { NextConfig } from "next";
+import { templatePaths } from "./lib/template";
 
 const nextConfig: NextConfig = {
-  images:{
-    remotePatterns:[
+  images: {
+    // Only OAuth avatars are loaded from remote hosts
+    remotePatterns: [
       {
-        protocol:"https",
-        hostname:"*",
-        port:'',
-        pathname:"/**"
-      }
-    ]
+        protocol: "https",
+        hostname: "avatars.githubusercontent.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.googleusercontent.com",
+        pathname: "/**",
+      },
+    ],
+  },
+  // /api/template/[id] reads the starter folders at runtime with a dynamic path,
+  // so they must be bundled with that function explicitly (serverless/Vercel)
+  outputFileTracingIncludes: {
+    "/api/template/[id]": Object.values(templatePaths).map(
+      (templatePath) => `.${templatePath}/**/*`
+    ),
   },
   async headers() {
     return [
       {
-        // Apply to all routes
+        // WebContainers need cross-origin isolation (SharedArrayBuffer)
         source: '/:path*',
         headers: [
           {
