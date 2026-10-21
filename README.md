@@ -8,6 +8,14 @@ A web IDE that runs full projects **inside the browser**. Pick a template (React
 
 The AI provider is configurable: **Ollama** locally (free, no API key) or the **Anthropic API** (Claude) in production.
 
+## Demo
+
+[Pending: demo link]
+
+## Screenshots
+
+<!-- Add screenshots here -->
+
 ## Features
 
 - **OAuth sign-in** with GitHub and Google (Auth.js + Prisma adapter).
@@ -184,7 +192,7 @@ app/                  Next.js routes (pages, layouts, API route handlers)
 lib/                  Shared server code: Prisma client, AI layer, rate limiter
 modules/              Features: auth, dashboard, playground, ai-chat, webcontainers
 prisma/schema.prisma  Data model (users, accounts, playgrounds, files, stars)
-vibecode-starters/    Starter templates (StackBlitz starters, MIT)
+vibecode-starters/    Starter templates (see Credits)
 ```
 
 ## Deploying to Vercel
@@ -210,9 +218,9 @@ On Vercel, Auth.js detects the host automatically (`AUTH_URL` is not needed). On
 
 ## Credits and what I added
 
-This project started from the **VibeCode Editor** course project by **[COURSE AUTHOR — fill in]** ([course link — fill in]). The base application (UI, authentication, dashboard, Monaco editor, WebContainers, terminal and the Ollama-based AI chat and completion) comes from that course.
+This project started from the **VibeCode Editor** project of **Hitesh Choudhary's course on Udemy** ([Pending: course link]). The base application (UI, authentication, dashboard, Monaco editor, WebContainers, terminal and the Ollama-based AI chat and completion) comes from that course.
 
-The starter templates in `vibecode-starters/` come from [StackBlitz Starters](https://github.com/stackblitz/starters) (MIT License).
+The starter templates in `vibecode-starters/` come from the [vibecode-starters](https://github.com/Aestheticsuraj234/vibecode-starters) repository by **Aestheticsuraj234**.
 
 **What I added on top of the course project:**
 
@@ -224,6 +232,10 @@ The starter templates in `vibecode-starters/` come from [StackBlitz Starters](ht
 - **Tests and CI**: 79 unit tests with Vitest for `lib/` and `modules/playground/lib`, and a GitHub Actions pipeline (lint, typecheck, test, build).
 - **Vercel deployment**: template files bundled with the serverless function, no writes to the file system, `prisma generate` on install, and image optimization restricted to OAuth avatar hosts (it allowed any host).
 - Bilingual documentation (English / Spanish).
+
+## License
+
+Educational project based on a course; review the license of the original material before reusing it.
 
 ## Known limitations
 

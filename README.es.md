@@ -8,6 +8,14 @@ Un IDE web que ejecuta proyectos completos **dentro del navegador**. Eliges una 
 
 El proveedor de IA es configurable: **Ollama** en local (gratis, sin API key) o la **API de Anthropic** (Claude) en producción.
 
+## Demo
+
+[Pendiente: enlace de la demo]
+
+## Capturas
+
+<!-- Agrega aquí las capturas -->
+
 ## Funcionalidades
 
 - **Login con OAuth** de GitHub y Google (Auth.js + adaptador de Prisma).
@@ -184,7 +192,7 @@ app/                  Rutas de Next.js (páginas, layouts, route handlers)
 lib/                  Código de servidor compartido: Prisma, capa de IA, rate limiter
 modules/              Funcionalidades: auth, dashboard, playground, ai-chat, webcontainers
 prisma/schema.prisma  Modelo de datos (usuarios, cuentas, playgrounds, archivos, favoritos)
-vibecode-starters/    Plantillas (StackBlitz Starters, MIT)
+vibecode-starters/    Plantillas (ver Créditos)
 ```
 
 ## Despliegue en Vercel
@@ -210,9 +218,9 @@ En Vercel, Auth.js detecta el host automáticamente (no hace falta `AUTH_URL`). 
 
 ## Créditos y qué agregué yo
 
-Este proyecto parte del proyecto **VibeCode Editor** del curso de **[AUTOR DEL CURSO — completar]** ([enlace al curso — completar]). La aplicación base (interfaz, autenticación, dashboard, editor Monaco, WebContainers, terminal y el chat y autocompletado con Ollama) viene de ese curso.
+Este proyecto parte del proyecto **VibeCode Editor** del **curso de Hitesh Choudhary en Udemy** ([Pendiente: enlace al curso]). La aplicación base (interfaz, autenticación, dashboard, editor Monaco, WebContainers, terminal y el chat y autocompletado con Ollama) viene de ese curso.
 
-Las plantillas de `vibecode-starters/` vienen de [StackBlitz Starters](https://github.com/stackblitz/starters) (licencia MIT).
+Las plantillas de `vibecode-starters/` vienen del repositorio [vibecode-starters](https://github.com/Aestheticsuraj234/vibecode-starters) de **Aestheticsuraj234**.
 
 **Lo que agregué sobre el proyecto del curso:**
 
@@ -224,6 +232,10 @@ Las plantillas de `vibecode-starters/` vienen de [StackBlitz Starters](https://g
 - **Pruebas y CI**: 79 pruebas unitarias con Vitest para `lib/` y `modules/playground/lib`, y un pipeline de GitHub Actions (lint, typecheck, test, build).
 - **Despliegue en Vercel**: plantillas incluidas en la función serverless, sin escrituras en el sistema de archivos, `prisma generate` al instalar y optimización de imágenes limitada a los hosts de avatares de OAuth (antes permitía cualquier host).
 - Documentación bilingüe (inglés / español).
+
+## Licencia
+
+Proyecto educativo basado en un curso; revisar la licencia del material original antes de reutilizarlo.
 
 ## Limitaciones conocidas
 
