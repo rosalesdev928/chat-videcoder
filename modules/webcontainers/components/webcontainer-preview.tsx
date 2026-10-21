@@ -1,7 +1,11 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
 
-import { transformToWebContainerFormat } from "../hooks/transformer";
+import {
+  getRootPackageJson,
+  getStartScript,
+  transformToWebContainerFormat,
+} from "../hooks/transformer";
 import { CheckCircle, Loader2, XCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
@@ -189,7 +193,8 @@ const WebContainerPreview = ({
           );
         }
 
-        const startProcess = await instance.spawn("npm", ["run", "start"]);
+        const startScript = getStartScript(getRootPackageJson(templateData));
+        const startProcess = await instance.spawn("npm", ["run", startScript]);
 
         instance.on("server-ready", (port: number, url: string) => {
           if (terminalRef.current?.writeToTerminal) {

@@ -36,3 +36,26 @@ export function transformToWebContainerFormat(
 ): FileSystemTree {
   return toTree(template.items);
 }
+
+// Dev-server scripts in order of preference. `start` is not first because in
+// some templates (e.g. Next.js) it serves a production build that doesn't exist yet.
+const START_SCRIPTS = ["dev", "start", "serve"] as const;
+
+/** Picks the npm script that starts the template's dev server */
+export function getStartScript(packageJsonContent: string | undefined): string {
+  try {
+    const scripts = JSON.parse(packageJsonContent ?? "{}").scripts ?? {};
+    return START_SCRIPTS.find((name) => typeof scripts[name] === "string") ?? "start";
+  } catch {
+    return "start";
+  }
+}
+
+/** Content of the root package.json of a template, if any */
+export function getRootPackageJson(template: TemplateFolder): string | undefined {
+  const file = template.items.find(
+    (item): item is TemplateFile =>
+      !isFolder(item) && item.filename === "package" && item.fileExtension === "json"
+  );
+  return file?.content;
+}
