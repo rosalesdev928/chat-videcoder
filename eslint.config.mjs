@@ -12,7 +12,7 @@ const compat = new FlatCompat({
 const eslintConfig = [
   {
     // Starter templates copied into user playgrounds, not part of the app
-    ignores: [".next/**", "node_modules/**", "vibecode-starters/**", "coverage/**"],
+    ignores: [".next/**", "node_modules/**", "vibecode-starters/**", "coverage/**", "next-env.d.ts"],
   },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
 ];

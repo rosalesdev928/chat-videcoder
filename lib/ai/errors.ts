@@ -22,6 +22,17 @@ export class AIUnavailableError extends Error {
   }
 }
 
+/** No Ollama server reachable (e.g. a deployment without a local Ollama) */
+export class OllamaUnavailableError extends AIUnavailableError {
+  constructor(message = "Ollama is not reachable") {
+    super(message);
+    this.name = "OllamaUnavailableError";
+  }
+}
+
+export const OLLAMA_UNAVAILABLE_MESSAGE =
+  "AI is only available locally with Ollama. Start Ollama (ollama serve) or set AI_PROVIDER=anthropic.";
+
 export interface AIErrorInfo {
   status: number;
   code: string;
@@ -41,6 +52,9 @@ export function classifyAIError(error: unknown): AIErrorInfo {
   }
   if (error instanceof AITimeoutError || error instanceof Anthropic.APIConnectionTimeoutError) {
     return { status: 504, code: "ai_timeout", message: "The AI took too long to respond. Try again." };
+  }
+  if (error instanceof OllamaUnavailableError) {
+    return { status: 503, code: "ai_local_only", message: OLLAMA_UNAVAILABLE_MESSAGE };
   }
   if (error instanceof AIUnavailableError || error instanceof Anthropic.APIConnectionError) {
     return { status: 503, code: "ai_unavailable", message: "The AI service is not reachable right now" };

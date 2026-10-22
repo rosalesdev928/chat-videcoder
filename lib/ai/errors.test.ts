@@ -6,6 +6,8 @@ import {
   AITimeoutError,
   AIUnavailableError,
   classifyAIError,
+  OLLAMA_UNAVAILABLE_MESSAGE,
+  OllamaUnavailableError,
 } from "./errors";
 
 describe("classifyAIError", () => {
@@ -23,6 +25,14 @@ describe("classifyAIError", () => {
 
     expect(info.status).toBe(status);
     expect(info.code).toBe(code);
+  });
+
+  it("explains that the AI only works locally when Ollama is not reachable", () => {
+    expect(classifyAIError(new OllamaUnavailableError())).toEqual({
+      status: 503,
+      code: "ai_local_only",
+      message: OLLAMA_UNAVAILABLE_MESSAGE,
+    });
   });
 
   it("never leaks the original error message", () => {

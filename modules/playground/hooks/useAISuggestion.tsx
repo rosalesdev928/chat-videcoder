@@ -1,7 +1,12 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { editor } from "monaco-editor";
+import { toast } from "sonner";
 
 type CodeEditor = editor.IStandaloneCodeEditor;
+
+// Error codes from /api/code-completion meaning "no AI backend right now"
+const UNAVAILABLE_CODES = new Set(["ai_local_only", "ai_unavailable", "ai_not_configured"]);
+const UNAVAILABLE_PAUSE_MS = 60_000;
 
 
 interface AISuggestionsState {
@@ -29,8 +34,11 @@ export const useAISuggestions = (): UseAISuggestionsReturn => {
         decoration: [],
         isEnabled: true,
     });
+    // Timestamp until which suggestions are paused because the AI is unavailable
+    const pausedUntilRef = useRef(0);
 
     const toggleEnabled = useCallback(() => {
+        pausedUntilRef.current = 0
         setState((prev) => ({ ...prev, isEnabled: !prev.isEnabled }))
     }, [])
 
@@ -41,7 +49,7 @@ export const useAISuggestions = (): UseAISuggestionsReturn => {
                 return currentState
             }
 
-            if (!editor) {
+            if (!editor || Date.now() < pausedUntilRef.current) {
                 return currentState
             }
 
@@ -69,6 +77,13 @@ export const useAISuggestions = (): UseAISuggestionsReturn => {
                         body: JSON.stringify(payload)
                     })
                     if (!response.ok) {
+                        const errorData = await response.json().catch(() => null);
+                        if (UNAVAILABLE_CODES.has(errorData?.code)) {
+                            // Show why there are no suggestions (same toast id, so it isn't stacked)
+                            // and stop asking on every cursor move for a while
+                            toast.error(errorData.error, { id: "ai-unavailable" });
+                            pausedUntilRef.current = Date.now() + UNAVAILABLE_PAUSE_MS;
+                        }
                         throw new Error(`API responded with status ${response.status}`);
                     }
 

@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AIConfig } from "./config";
-import { AIRefusalError, AITimeoutError, AIUnavailableError } from "./errors";
+import {
+  AIRefusalError,
+  AITimeoutError,
+  AIUnavailableError,
+  OllamaUnavailableError,
+} from "./errors";
 import { generateText, type GenerateTextOptions } from "./provider";
 
 const { create, betaCreate } = vi.hoisted(() => ({
@@ -71,11 +76,11 @@ describe("generateText with Ollama", () => {
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("throws AIUnavailableError when Ollama is not running", async () => {
+  it("throws OllamaUnavailableError when Ollama is not running", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
 
     await expect(generateText(ollamaConfig, options)).rejects.toBeInstanceOf(
-      AIUnavailableError
+      OllamaUnavailableError
     );
   });
 

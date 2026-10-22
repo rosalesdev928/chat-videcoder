@@ -1,6 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { AIConfig } from "./config";
-import { AIRefusalError, AITimeoutError, AIUnavailableError } from "./errors";
+import {
+  AIRefusalError,
+  AITimeoutError,
+  AIUnavailableError,
+  OllamaUnavailableError,
+} from "./errors";
 
 export interface ChatTurn {
   role: "user" | "assistant";
@@ -94,7 +99,7 @@ async function generateWithOllama(
       throw new AITimeoutError();
     }
     // fetch() rejects with a TypeError when Ollama is not running
-    throw new AIUnavailableError(
+    throw new OllamaUnavailableError(
       `Could not reach Ollama at ${config.ollamaBaseUrl}`
     );
   }

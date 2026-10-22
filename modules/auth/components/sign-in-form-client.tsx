@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Chrome, Github } from "lucide-react";
 import { signIn } from "@/auth";
+import { isGoogleAuthConfigured } from "@/lib/auth-providers";
 
 async function handleGoogleSignIn(){
 "use server"
@@ -35,12 +36,14 @@ const SignInFormClient = () => {
       </CardHeader>
 
       <CardContent className="grid gap-4">
-        <form action={handleGoogleSignIn}>
-          <Button type="submit" variant={"outline"} className="w-full">
-            <Chrome className="mr-2 h-4 w-4" />
-            <span>Sign in with google</span>
-          </Button>
-        </form>
+        {isGoogleAuthConfigured() && (
+          <form action={handleGoogleSignIn}>
+            <Button type="submit" variant={"outline"} className="w-full">
+              <Chrome className="mr-2 h-4 w-4" />
+              <span>Sign in with google</span>
+            </Button>
+          </form>
+        )}
         <form action={handleGithubSignIn}>
           <Button type="submit" variant={"outline"} className="w-full">
             <Github className="mr-2 h-4 w-4" />
