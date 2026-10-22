@@ -1,5 +1,7 @@
 # VibeCode Editor
 
+![VibeCode Editor](public/vibe-code-editor-thumbnail.svg)
+
 [English](README.md) · **Español**
 
 Un editor de código en el navegador con asistente de IA. Creas un proyecto a partir de una plantilla, lo editas con Monaco y lo ejecutas directamente en el navegador con WebContainers. No hace falta instalar nada en local para ejecutar el código.

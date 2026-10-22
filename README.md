@@ -1,5 +1,7 @@
 # VibeCode Editor
 
+![VibeCode Editor](public/vibe-code-editor-thumbnail.svg)
+
 **English** · [Español](README.es.md)
 
 An in-browser code editor with an AI assistant. Create a project from a template, edit it with Monaco, and run it directly in the browser with WebContainers. No local setup is needed to run the code.
