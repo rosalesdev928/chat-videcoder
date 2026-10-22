@@ -2,243 +2,162 @@
 
 **English** · [Español](README.es.md)
 
-![VibeCode Editor](public/vibe-code-editor-thumbnail.svg)
+An in-browser code editor with an AI assistant. Create a project from a template, edit it with Monaco, and run it directly in the browser with WebContainers. No local setup is needed to run the code.
 
-A web IDE that runs full projects **inside the browser**. Pick a template (React, Next.js, Express, Vue, Hono or Angular), edit it in Monaco, run it with WebContainers, use the integrated terminal, and get help from an AI assistant and inline code completion.
-
-The AI provider is configurable: **Ollama** locally (free, no API key) or the **Anthropic API** (Claude) in production.
+[![CI](https://github.com/rosalesdev928/chat-videcoder/actions/workflows/ci.yml/badge.svg)](https://github.com/rosalesdev928/chat-videcoder/actions/workflows/ci.yml)
 
 ## Demo
 
-[Pending: demo link]
+**[chat-videcoder.vercel.app](https://chat-videcoder.vercel.app)**
 
-## Screenshots
+> The AI chat and code completion only work when running the project locally with Ollama. In the online demo, the AI panels show a message explaining this.
 
-<!-- Add screenshots here -->
+## What it does
 
-## Features
-
-- **OAuth sign-in** with GitHub and Google (Auth.js + Prisma adapter).
-- **Dashboard** to create, rename, duplicate, delete and star playgrounds.
-- **6 starter templates**: React, Next.js, Express, Vue, Hono and Angular.
-- **File explorer**: create, rename and delete files and folders; changes are saved to MongoDB.
-- **Monaco editor** with syntax highlighting per language and `Ctrl+S` to save.
-- **In-browser runtime** with WebContainers: `npm install` and the dev server run in the browser tab, with a live preview.
-- **Terminal** (xterm.js) connected to the WebContainer.
-- **AI chat** with chat / review / fix / optimize modes and Markdown + code rendering.
-- **AI inline completion**: `Ctrl+Space` (or after typing characters such as `{`, `.`, `=` or a new line); `Tab` accepts, `Esc` dismisses.
-- Light/dark theme.
+1. **Sign in with GitHub** (Google sign-in is also available when its credentials are configured).
+2. **Create playgrounds** from six templates: React, Next.js, Express, Vue, Hono and Angular. From the dashboard you can rename, duplicate, delete and star them.
+3. **Edit files** in the Monaco editor (the editor used by VS Code). A file explorer lets you create, rename and delete files and folders. `Ctrl+S` saves; changes are stored in the database.
+4. **Run the project in the browser.** A WebContainer installs the dependencies, starts the dev server and shows a live preview. An integrated terminal (xterm.js) runs commands inside the same container.
+5. **Ask the AI.** A chat panel has chat, review, fix and optimize modes. Inline completion suggests code with `Ctrl+Space` or after typing characters such as `{`, `.` or a new line; `Tab` accepts and `Esc` dismisses.
 
 ## Tech stack
 
-| Layer | Technology |
+| Area | Technology |
 |---|---|
-| Framework | Next.js 15 (App Router, Server Actions, Route Handlers), React 19, TypeScript |
-| UI | Tailwind CSS 4, shadcn/ui (Radix), lucide-react |
-| Auth | Auth.js (NextAuth v5) — GitHub & Google OAuth, JWT sessions |
-| Database | MongoDB Atlas + Prisma ORM |
-| Editor | Monaco Editor (`@monaco-editor/react`) |
-| Runtime | WebContainers (`@webcontainer/api`) |
-| Terminal | xterm.js |
-| AI | Ollama (local) or Anthropic API via `@anthropic-ai/sdk` |
-| Quality | ESLint, `tsc`, Vitest, GitHub Actions |
+| Framework | Next.js 15 (App Router, Server Actions), React 19, TypeScript |
+| Styling | Tailwind CSS, shadcn/ui |
+| Authentication | Auth.js (NextAuth v5) with GitHub OAuth |
+| Database | Prisma + MongoDB Atlas |
+| Editor | Monaco Editor |
+| In-browser runtime | WebContainers, xterm.js |
+| AI | Ollama (local) or Anthropic API, selected with environment variables |
+| Testing and CI | Vitest, GitHub Actions |
+| Hosting | Vercel |
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    subgraph Browser
-        UI["Next.js UI<br/>dashboard · explorer · chat"]
-        Monaco["Monaco editor"]
-        WC["WebContainer<br/>npm install + dev server"]
-        Term["xterm.js terminal"]
+    Browser["Browser<br/>Next.js UI + Monaco"]
+
+    subgraph Next["Next.js server"]
+        Auth["Auth.js<br/>middleware"]
+        Actions["Server Actions<br/>playground CRUD"]
+        Template["/api/template/:id"]
+        AIRoutes["/api/chat<br/>/api/code-completion"]
+        AILib["lib/ai<br/>provider layer"]
     end
 
-    subgraph Server["Next.js server"]
-        MW["middleware.ts<br/>Auth.js route protection"]
-        SA["Server Actions<br/>playground CRUD"]
-        TPL["GET /api/template/:id"]
-        CHAT["POST /api/chat"]
-        CC["POST /api/code-completion"]
-        AI["lib/ai<br/>config · provider · errors"]
-        RL["lib/rate-limit"]
-    end
+    DB[("MongoDB Atlas<br/>via Prisma")]
+    Starters[("vibecode-starters/")]
+    WC["WebContainer<br/>npm install + dev server"]
+    Ollama["Ollama<br/>(local)"]
+    Anthropic["Anthropic API"]
 
-    Starters[("vibecode-starters/<br/>template files")]
-    DB[("MongoDB Atlas")]
-    OAuth["GitHub / Google OAuth"]
-    Ollama["Ollama (local)"]
-    Claude["Anthropic API"]
-
-    UI --> MW
-    UI --> SA --> DB
-    UI --> TPL --> Starters
-    TPL --> DB
-    Monaco --> CC
-    UI --> CHAT
-    CHAT --> RL
-    CC --> RL
-    CHAT --> AI
-    CC --> AI
-    AI -->|AI_PROVIDER=ollama| Ollama
-    AI -->|AI_PROVIDER=anthropic| Claude
-    MW --> OAuth
-    UI -->|template JSON| WC
-    WC --> Term
+    Browser --> Auth
+    Browser --> Actions --> DB
+    Browser --> Template
+    Template --> Starters
+    Template --> DB
+    Browser --> AIRoutes --> AILib
+    AILib -->|AI_PROVIDER=ollama| Ollama
+    AILib -->|AI_PROVIDER=anthropic| Anthropic
+    Browser -->|project files| WC
 ```
 
-**How a playground runs**
-
-1. The user creates a playground and picks a template. Its metadata is stored in MongoDB.
-2. The first time it is opened, `/api/template/[id]` reads the template folder from `vibecode-starters/` and returns it as JSON. After that, the files saved in MongoDB are used.
-3. The browser mounts those files in a WebContainer, runs `npm install` and starts the dev server (`dev`, `start` or `serve` script). The preview is an iframe pointing to that server.
-4. Every save updates both the WebContainer file system and MongoDB.
-
-**AI requests** go through `lib/ai`: `getAIConfig()` reads the environment, `generateText()` calls Ollama (`/api/chat`) or the Anthropic Messages API, and `classifyAIError()` turns failures into clear HTTP errors (429, 503, 504…). Both AI routes require a session, validate input size, apply a per-user rate limit and use timeouts.
-
-## Getting started
-
-### Requirements
-
-- Node.js 22 (see `.nvmrc`)
-- A MongoDB database (MongoDB Atlas free tier works; Prisma requires a replica set, which Atlas provides)
-- A GitHub OAuth App and/or a Google OAuth client
-- **AI (choose one):** [Ollama](https://ollama.com) installed locally, or an Anthropic API key
-
-### 1. Install
-
-```bash
-git clone <your-repo-url>
-cd chai-vibe-editor-master
-npm install
-```
-
-### 2. Environment variables
-
-```bash
-cp .env.example .env
-```
-
-Fill in the values (see the table below). Generate `AUTH_SECRET` with `npx auth secret` or `openssl rand -base64 32`.
-
-OAuth callback URLs for local development:
-
-- GitHub: `http://localhost:3000/api/auth/callback/github`
-- Google: `http://localhost:3000/api/auth/callback/google`
-
-### 3. Database
-
-```bash
-npx prisma generate   # generate the Prisma client
-npx prisma db push    # create collections and indexes in MongoDB
-```
-
-With MongoDB, Prisma uses `db push` instead of `migrate`.
-
-### 4. AI (local, with Ollama)
-
-```bash
-ollama pull codellama:latest   # or the model you set in AI_MODEL
-```
-
-Ollama must be running (`ollama serve`) for the chat and inline completion. The rest of the app works without it.
-
-### 5. Run
-
-```bash
-npm run dev
-```
-
-Open <http://localhost:3000>.
-
-## Environment variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `DATABASE_URL` | Yes | MongoDB connection string |
-| `AUTH_SECRET` | Yes | Secret used by Auth.js to sign/encrypt sessions |
-| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | Yes* | GitHub OAuth App credentials |
-| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Yes* | Google OAuth client credentials |
-| `AI_PROVIDER` | No | `ollama` (default) or `anthropic` |
-| `AI_MODEL` | No | Chat model. Default: `codellama:latest` (Ollama) / `claude-opus-5-5` (Anthropic) |
-| `AI_COMPLETION_MODEL` | No | Model for inline completion. Defaults to `AI_MODEL` |
-| `AI_EFFORT` | No | Anthropic only: `low`, `medium`, `high`, `xhigh` or `max` |
-| `OLLAMA_BASE_URL` | No | Default `http://localhost:11434` |
-| `ANTHROPIC_API_KEY` | If `AI_PROVIDER=anthropic` | Anthropic API key |
-
-\* Both providers are configured in `auth.config.ts`; configure at least the one you will use.
-
-`.env` is git-ignored. Never commit real secrets; `.env.example` only contains placeholders.
-
-## Scripts
-
-| Command | Description |
-|---|---|
-| `npm run dev` | Development server (Turbopack) |
-| `npm run build` / `npm start` | Production build / server |
-| `npm run lint` | ESLint on the whole project |
-| `npm run typecheck` | TypeScript type check |
-| `npm test` | Unit tests (Vitest) |
-
-CI (`.github/workflows/ci.yml`) runs lint, typecheck, tests and build on every push and pull request.
+- **Browser.** The Next.js interface: dashboard, file explorer, Monaco editor, terminal and AI chat.
+- **Auth.js.** Handles GitHub OAuth. The middleware protects every page except sign-in, and sessions are JWTs.
+- **Server Actions.** Create, read, update and delete playgrounds and their files. Every action checks that the playground belongs to the signed-in user.
+- **`/api/template/:id`.** The first time a playground is opened, it reads the template folder from `vibecode-starters/` and returns it as JSON. After that, the files saved in MongoDB are used.
+- **Prisma + MongoDB Atlas.** Stores users, OAuth accounts, playgrounds, their files and stars.
+- **WebContainer.** Runs Node.js inside the browser tab: it mounts the project files, runs `npm install` and starts the dev server shown in the preview.
+- **AI routes + `lib/ai`.** The chat and completion endpoints require a session, apply a per-user rate limit and timeouts, and call the provider chosen with `AI_PROVIDER`: Ollama or Anthropic.
 
 ## Project structure
 
 ```
-app/                  Next.js routes (pages, layouts, API route handlers)
-  api/chat/           AI chat endpoint
-  api/code-completion AI inline completion endpoint
-  api/template/[id]/  Template files for a playground
-lib/                  Shared server code: Prisma client, AI layer, rate limiter
-modules/              Features: auth, dashboard, playground, ai-chat, webcontainers
-prisma/schema.prisma  Data model (users, accounts, playgrounds, files, stars)
-vibecode-starters/    Starter templates (see Credits)
+app/                Next.js routes: pages, layouts and API endpoints (chat, completion, templates, auth)
+modules/            Features: auth, dashboard, playground (editor, explorer), ai-chat, webcontainers
+lib/                Shared code: Prisma client, AI provider layer, rate limiter, template paths
+components/         Reusable UI components (shadcn/ui) and providers
+prisma/             Database schema (schema.prisma)
+vibecode-starters/  Starter templates used to create new playgrounds
 ```
+
+## Improvements over the base project
+
+- **Configurable AI provider.** `AI_PROVIDER=ollama|anthropic`, with models and URLs taken from environment variables instead of being hardcoded. It uses the official Anthropic SDK and adds timeouts and clear error messages.
+- **Rate limiting** per user on the chat and completion endpoints.
+- **Ownership checks.** Playground actions and the template endpoint verify that the playground belongs to the user. Before, any signed-in user could delete or overwrite another user's playground.
+- **Bug fixes**, among them:
+  - accepting AI suggestions did nothing;
+  - the Vue, Hono and Next.js previews ran the wrong npm script;
+  - the WebContainer was never shut down;
+  - inline code in chat produced invalid HTML;
+  - success messages appeared even when a save failed.
+- **82 unit tests** with Vitest, plus a **GitHub Actions** pipeline that runs lint, typecheck, tests and build.
+- **Dependency updates:** Next.js and other packages with critical vulnerabilities, without breaking changes.
+
+## Running locally
+
+### Requirements
+
+- Node.js 22
+- A MongoDB database (the MongoDB Atlas free tier works)
+- A GitHub OAuth App with the callback URL `http://localhost:3000/api/auth/callback/github`
+- [Ollama](https://ollama.com), for the AI features
+
+### Steps
+
+```bash
+npm install
+cp .env.example .env      # then fill in the values below
+npx prisma generate
+npx prisma db push
+ollama pull codellama
+npm run dev
+```
+
+Open <http://localhost:3000>. Ollama must be running for the AI features; the rest of the app works without it.
+
+### Environment variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | Yes | MongoDB connection string |
+| `AUTH_SECRET` | Yes | Secret used to sign sessions. Generate it with `npx auth secret` |
+| `AUTH_GITHUB_ID` | Yes | GitHub OAuth App client ID |
+| `AUTH_GITHUB_SECRET` | Yes | GitHub OAuth App client secret |
+| `AUTH_GOOGLE_ID` | No | Google OAuth client ID. The Google button only appears if both Google variables are set |
+| `AUTH_GOOGLE_SECRET` | No | Google OAuth client secret |
+| `AI_PROVIDER` | No | `ollama` (default) or `anthropic` |
+| `AI_MODEL` | No | Chat model. Default: `codellama:latest` for Ollama, `claude-opus-5-5` for Anthropic |
+| `AI_COMPLETION_MODEL` | No | Model for inline completion. Defaults to `AI_MODEL` |
+| `AI_EFFORT` | No | Anthropic only: `low`, `medium`, `high`, `xhigh` or `max` |
+| `OLLAMA_BASE_URL` | No | Ollama URL. Default: `http://localhost:11434` |
+| `ANTHROPIC_API_KEY` | Only with `anthropic` | Anthropic API key |
+
+### Useful scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Development server |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | TypeScript check |
+| `npm test` | Unit tests |
+| `npm run build` | Production build |
 
 ## Deploying to Vercel
 
-The project is ready for Vercel with no `vercel.json`:
+1. Import the repository in Vercel. The default Next.js settings work: `postinstall` runs `prisma generate`, and the template files are bundled with the API route that reads them.
+2. In MongoDB Atlas, allow connections from Vercel (Network Access) and run `npx prisma db push` once against the production database.
+3. Add these environment variables in Vercel:
+   - `DATABASE_URL`
+   - a new `AUTH_SECRET`
+   - `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET`, from a GitHub OAuth App whose callback is `https://<your-domain>/api/auth/callback/github`
+   - optionally, `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`
+4. For AI in production, set `AI_PROVIDER=anthropic` and `ANTHROPIC_API_KEY`. Without them, the deployed app shows that the AI is only available locally with Ollama.
 
-- `postinstall` runs `prisma generate`, so the Prisma client is always rebuilt (Vercel caches `node_modules`).
-- `next.config.ts` bundles the six starter folders with `/api/template/[id]` (`outputFileTracingIncludes`), and that route scans them in memory (the serverless file system is read-only).
-- The AI routes declare `maxDuration` (120 s chat, 30 s completion) and their own timeouts.
-- `engines.node` selects Node.js 22.
+## Credits and license
 
-Steps:
-
-1. **Database**: in MongoDB Atlas, create a database user and allow connections from Vercel (Network Access → `0.0.0.0/0`, or use the Vercel ↔ Atlas integration). Create the collections once from your machine: `DATABASE_URL="<production url>" npx prisma db push`.
-2. **Import** the GitHub repository in Vercel (framework preset: Next.js, default build command).
-3. **Environment variables** (Production): `DATABASE_URL`, a new `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY` and, optionally, `AI_MODEL`, `AI_COMPLETION_MODEL` and `AI_EFFORT`. Ollama cannot run on Vercel.
-4. **OAuth callbacks** for your production domain:
-   - GitHub (an OAuth App accepts a single callback URL, so create a separate app for production): `https://<your-domain>/api/auth/callback/github`
-   - Google (add it to the same client): `https://<your-domain>/api/auth/callback/google`, plus `https://<your-domain>` as an authorized JavaScript origin. Publish the OAuth consent screen, or only test users will be able to sign in.
-5. **Redeploy** after adding the variables.
-
-On Vercel, Auth.js detects the host automatically (`AUTH_URL` is not needed). On other hosts, set `AUTH_TRUST_HOST=true` or `AUTH_URL`. Preview deployments have different URLs, so OAuth sign-in only works on the domains registered in GitHub and Google.
-
-## Credits and what I added
-
-This project started from the **VibeCode Editor** project of **Hitesh Choudhary's course on Udemy** ([Pending: course link]). The base application (UI, authentication, dashboard, Monaco editor, WebContainers, terminal and the Ollama-based AI chat and completion) comes from that course.
-
-The starter templates in `vibecode-starters/` come from the [vibecode-starters](https://github.com/Aestheticsuraj234/vibecode-starters) repository by **Aestheticsuraj234**.
-
-**What I added on top of the course project:**
-
-- **Configurable AI provider**: `AI_PROVIDER=ollama|anthropic` with models from environment variables (no hardcoded models or URLs), using the official Anthropic SDK in production.
-- **Reliability on the AI routes**: timeouts, retries, mapping errors to clear HTTP responses, input size limits and a per-user rate limit.
-- **Security fixes**: Server Actions and `/api/template` now check the session and that the playground belongs to the user (before, any signed-in user could delete or overwrite another user's playground). Internal helpers that returned OAuth tokens were moved out of a `"use server"` file.
-- **Bug fixes**: accepting AI suggestions did nothing, the Vue/Hono/Next.js previews ran the wrong npm script, the WebContainer was never torn down, a `TypeError` on editor unmount, Markdown inline code caused invalid HTML (hydration error), success toasts shown on failed saves, invalid Monaco options, and more.
-- **Code quality**: from 4 TypeScript errors and 96 ESLint problems to zero; ESLint now covers the whole project.
-- **Tests and CI**: 79 unit tests with Vitest for `lib/` and `modules/playground/lib`, and a GitHub Actions pipeline (lint, typecheck, test, build).
-- **Vercel deployment**: template files bundled with the serverless function, no writes to the file system, `prisma generate` on install, and image optimization restricted to OAuth avatar hosts (it allowed any host).
-- Bilingual documentation (English / Spanish).
-
-## License
-
-Educational project based on a course; review the license of the original material before reusing it.
-
-## Known limitations
-
-- The rate limiter is in memory: with several server instances each one counts separately. A shared store (e.g. Redis) would be needed for a strict global limit.
-- Saving a file matches it by name and extension, so two files with the same name in different folders (e.g. two `index.ts`) can overwrite each other.
-- WebContainers work best in Chromium-based browsers (Chrome, Edge); support in other browsers is limited. They need cross-origin isolation, which the app enables with COOP/COEP headers in `next.config.ts`.
+Educational project based on a web development course with Next.js and AI; templates from [Aestheticsuraj234/vibecode-starters](https://github.com/Aestheticsuraj234/vibecode-starters).
